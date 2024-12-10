@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:14
+    container_name: postgres
+    restart: always
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: bankadmin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: bankadmin
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./prisma/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U bankadmin']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    env_file:
+      - .env
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bank-app
+    restart: always
+    ports:
+      - '3001:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: 'postgresql://bankadmin:admin@postgres:5432/bankadmin?schema=public'
+      PORT: 3000
+    entrypoint: ['sh', '-c', 'npx prisma migrate deploy && npm start']
+
+volumes:
+  postgres_data:
